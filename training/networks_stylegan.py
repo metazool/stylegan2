@@ -238,7 +238,7 @@ def leaky_relu(x, alpha=0.2):
 def pixel_norm(x, epsilon=1e-8):
     with tf.variable_scope('PixelNorm'):
         epsilon = tf.constant(epsilon, dtype=x.dtype, name='epsilon')
-        return x * tf.rsqrt(tf.reduce_mean(tf.square(x), axis=1, keepdims=True) + epsilon)
+        return x * tf.math.rsqrt(tf.reduce_mean(tf.square(x), axis=1, keepdims=True) + epsilon)
 
 #----------------------------------------------------------------------------
 # Instance normalization.
@@ -250,7 +250,7 @@ def instance_norm(x, epsilon=1e-8):
         x = tf.cast(x, tf.float32)
         x -= tf.reduce_mean(x, axis=[2,3], keepdims=True)
         epsilon = tf.constant(epsilon, dtype=x.dtype, name='epsilon')
-        x *= tf.rsqrt(tf.reduce_mean(tf.square(x), axis=[2,3], keepdims=True) + epsilon)
+        x *= tf.math.rsqrt(tf.reduce_mean(tf.square(x), axis=[2,3], keepdims=True) + epsilon)
         x = tf.cast(x, orig_dtype)
         return x
 

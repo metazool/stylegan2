@@ -25,7 +25,7 @@ def process_reals(x, labels, lod, mirror_augment, drange_data, drange_net):
         x = misc.adjust_dynamic_range(x, drange_data, drange_net)
     if mirror_augment:
         with tf.name_scope('MirrorAugment'):
-            x = tf.where(tf.random_uniform([tf.shape(x)[0]]) < 0.5, x, tf.reverse(x, [3]))
+            x = tf.where(tf.random.uniform([tf.shape(x)[0]]) < 0.5, x, tf.reverse(x, [3]))
     with tf.name_scope('FadeLOD'): # Smooth crossfade between consecutive levels-of-detail.
         s = tf.shape(x)
         y = tf.reshape(x, [-1, s[1], s[2]//2, 2, s[3]//2, 2])
@@ -165,12 +165,12 @@ def training_loop(
     # Setup training inputs.
     print('Building TensorFlow graph...')
     with tf.name_scope('Inputs'), tf.device('/cpu:0'):
-        lod_in               = tf.placeholder(tf.float32, name='lod_in', shape=[])
-        lrate_in             = tf.placeholder(tf.float32, name='lrate_in', shape=[])
-        minibatch_size_in    = tf.placeholder(tf.int32, name='minibatch_size_in', shape=[])
-        minibatch_gpu_in     = tf.placeholder(tf.int32, name='minibatch_gpu_in', shape=[])
+        lod_in               = tf.keras.backend.placeholder(dtype=tf.float32, name='lod_in', shape=[])
+        lrate_in             = tf.keras.backend.placeholder(dtype=tf.float32, name='lrate_in', shape=[])
+        minibatch_size_in    = tf.keras.backend.placeholder(dtype=tf.int32, name='minibatch_size_in', shape=[])
+        minibatch_gpu_in     = tf.keras.backend.placeholder(dtype=tf.int32, name='minibatch_gpu_in', shape=[])
         minibatch_multiplier = minibatch_size_in // (minibatch_gpu_in * num_gpus)
-        Gs_beta              = 0.5 ** tf.div(tf.cast(minibatch_size_in, tf.float32), G_smoothing_kimg * 1000.0) if G_smoothing_kimg > 0.0 else 0.0
+        Gs_beta              = 0.5 ** tf.realdiv(tf.cast(minibatch_size_in, tf.float32), G_smoothing_kimg * 1000.0) if G_smoothing_kimg > 0.0 else 0.0
 
     # Setup optimizers.
     G_opt_args = dict(G_opt_args)
@@ -200,21 +200,21 @@ def training_loop(
             # Fetch training data via temporary variables.
             with tf.name_scope('DataFetch'):
                 sched = training_schedule(cur_nimg=int(resume_kimg*1000), training_set=training_set, **sched_args)
-                reals_var = tf.Variable(name='reals', trainable=False, initial_value=tf.zeros([sched.minibatch_gpu] + training_set.shape))
-                labels_var = tf.Variable(name='labels', trainable=False, initial_value=tf.zeros([sched.minibatch_gpu, training_set.label_size]))
+                reals_var = tf.Variable(name='reals', trainable=False, initial_value=tf.zeros([sched.minibatch_gpu] + training_set.shape),  shape=tf.TensorShape(None))
+                labels_var = tf.Variable(name='labels', trainable=False, initial_value=tf.zeros([sched.minibatch_gpu, training_set.label_size]),  shape=tf.TensorShape(None))
                 reals_write, labels_write = training_set.get_minibatch_tf()
                 reals_write, labels_write = process_reals(reals_write, labels_write, lod_in, mirror_augment, training_set.dynamic_range, drange_net)
                 reals_write = tf.concat([reals_write, reals_var[minibatch_gpu_in:]], axis=0)
                 labels_write = tf.concat([labels_write, labels_var[minibatch_gpu_in:]], axis=0)
-                data_fetch_ops += [tf.assign(reals_var, reals_write)]
-                data_fetch_ops += [tf.assign(labels_var, labels_write)]
+                data_fetch_ops += [reals_var.assign(reals_write)]
+                data_fetch_ops += [reals_var.assign(labels_write)]
                 reals_read = reals_var[:minibatch_gpu_in]
                 labels_read = labels_var[:minibatch_gpu_in]
 
             # Evaluate loss functions.
             lod_assign_ops = []
-            if 'lod' in G_gpu.vars: lod_assign_ops += [tf.assign(G_gpu.vars['lod'], lod_in)]
-            if 'lod' in D_gpu.vars: lod_assign_ops += [tf.assign(D_gpu.vars['lod'], lod_in)]
+            if 'lod' in G_gpu.vars: lod_assign_ops += [G_gpu.vars['lod'].assign(lod_in)]
+            if 'lod' in D_gpu.vars: lod_assign_ops += [D_gpu.vars['lod'].assign(lod_in)]
             with tf.control_dependencies(lod_assign_ops):
                 with tf.name_scope('G_loss'):
                     G_loss, G_reg = dnnlib.util.call_func_by_name(G=G_gpu, D=D_gpu, opt=G_opt, training_set=training_set, minibatch_size=minibatch_gpu_in, **G_loss_args)

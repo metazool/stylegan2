@@ -39,7 +39,7 @@ class Optimizer:
 
     def __init__(self,
         name:                   str             = "Train",                  # Name string that will appear in TensorFlow graph.
-        tf_optimizer:           str             = "tf.train.AdamOptimizer", # Underlying optimizer class.
+        tf_optimizer:           str             = "tf.keras.optimizers.Adam", # Underlying optimizer class.
         learning_rate:          TfExpressionEx  = 0.001,                    # Learning rate. Can vary over time.
         minibatch_multiplier:   TfExpressionEx  = None,                     # Treat N consecutive minibatches as one by accumulating gradients.
         share:                  "Optimizer"     = None,                     # Share internal state with a previously created optimizer?
@@ -55,7 +55,7 @@ class Optimizer:
         self.learning_rate          = learning_rate
         self.minibatch_multiplier   = minibatch_multiplier
         self.id                     = self.name.replace("/", ".")
-        self.scope                  = tf.get_default_graph().unique_name(self.id)
+        self.scope                  = tf.compat.v1.get_default_graph().unique_name(self.id)
         self.optimizer_class        = util.get_obj_by_name(tf_optimizer)
         self.optimizer_kwargs       = dict(kwargs)
         self.use_loss_scaling       = use_loss_scaling
